@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retraction Screen</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1d2530; --line:#2a3340;
+    --ink:#e6edf3; --muted:#8b97a7; --faint:#5b6675;
+    --accent:#4c8dff; --accent-dim:#1e3a5f;
+    --ok:#2ecc8f; --ok-bg:#10271f; --ok-line:#1d5e44;
+    --warn:#f5b454; --warn-bg:#2b2310; --warn-line:#6b551d;
+    --bad:#ff6b6b; --bad-bg:#2b1414; --bad-line:#6b2424;
+    --mono:"SF Mono",ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 22px 80px}
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+         border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:24px}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:-.2px;font-weight:650}
+  .sub{color:var(--muted);font-size:13px;max-width:560px}
+  .databadge{font-family:var(--mono);font-size:11px;color:var(--faint);
+             border:1px solid var(--line);border-radius:6px;padding:6px 10px;white-space:nowrap}
+  .databadge b{color:var(--muted);font-weight:600}
+  .databadge.stale{border-color:var(--warn-line);color:var(--warn)}
+  .databadge.live{border-color:var(--ok-line)}
+
+  /* data / upload panel */
+  .datapanel{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--panel);
+             border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin-bottom:18px}
+  .datapanel .dp-status{font-size:13px;color:var(--muted)}
+  .datapanel .dp-status b{color:var(--ink);font-weight:600}
+  .datapanel .dp-status .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--faint)}
+  .datapanel .dp-status .dot.ok{background:var(--ok)} .datapanel .dp-status .dot.warn{background:var(--warn)}
+  .datapanel .dp-actions{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap}
+  .uploadbtn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:7px}
+  .uploadbtn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+  .dp-hint{flex-basis:100%;font-size:11px;color:var(--faint);margin-top:-2px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 18px 20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:550;letter-spacing:.2px}
+  label .opt{color:var(--faint);font-weight:400}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+        border-radius:8px;padding:10px 12px;font-size:14px;font-family:var(--sans);outline:none}
+  input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .hint{font-size:11px;color:var(--faint);margin-top:5px}
+  .row-actions{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+  button{font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;border-radius:8px;
+         border:1px solid transparent;padding:10px 18px}
+  .btn-primary{background:var(--accent);color:#06101f;border-color:var(--accent)}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;filter:none}
+  .btn-ghost{background:transparent;color:var(--muted);border-color:var(--line)}
+  .btn-ghost:hover{color:var(--ink);border-color:var(--faint)}
+  .emailwrap{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
+  .emailwrap input{background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+        border-radius:6px;padding:6px 9px;font-size:12px;font-family:var(--mono);width:190px}
+
+  /* status / verdict */
+  #status{margin-top:22px}
+  .verdict{border-radius:12px;border:1px solid;padding:18px 20px;display:flex;gap:16px;align-items:flex-start}
+  .verdict .v-icon{font-size:22px;line-height:1.1;margin-top:1px}
+  .verdict h2{margin:0 0 3px;font-size:16px;font-weight:650}
+  .verdict p{margin:0;font-size:13px;opacity:.9}
+  .v-ok{background:var(--ok-bg);border-color:var(--ok-line)} .v-ok h2{color:var(--ok)}
+  .v-warn{background:var(--warn-bg);border-color:var(--warn-line)} .v-warn h2{color:var(--warn)}
+  .v-bad{background:var(--bad-bg);border-color:var(--bad-line)} .v-bad h2{color:var(--bad)}
+  .v-counts{display:flex;gap:18px;margin-left:auto;text-align:right;flex-shrink:0}
+  .v-counts div{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .v-counts b{display:block;font-size:22px;font-weight:700;color:var(--ink);font-family:var(--mono)}
+
+  /* identity panel */
+  .identity{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+            padding:14px 16px;display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+  .identity .nm{font-weight:650;font-size:15px}
+  .identity .meta{font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .candidate-pick{margin-top:14px}
+  .candidate{display:flex;justify-content:space-between;gap:12px;padding:11px 14px;border:1px solid var(--line);
+             border-radius:8px;margin-bottom:8px;cursor:pointer;background:var(--panel)}
+  .candidate:hover{border-color:var(--accent)}
+  .candidate .meta{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* result groups */
+  .group{margin-top:22px}
+  .group-head{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  .group-head h3{margin:0;font-size:13px;letter-spacing:.3px;text-transform:uppercase;font-weight:650}
+  .pill{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+  .group-note{font-size:12px;color:var(--faint);margin:0 0 12px}
+
+  .rec{border:1px solid var(--line);border-left-width:3px;border-radius:9px;padding:13px 15px;margin-bottom:10px;background:var(--panel)}
+  .rec.c-confirmed{border-left-color:var(--bad)}
+  .rec.c-oaflag{border-left-color:var(--warn)}
+  .rec.c-name{border-left-color:var(--accent)}
+  .rec .rtitle{font-weight:600;font-size:14px;margin:0 0 6px;line-height:1.35}
+  .rec .line{font-size:12px;color:var(--muted);font-family:var(--mono);margin:2px 0;word-break:break-word}
+  .rec .line b{color:var(--ink);font-weight:600}
+  .reasons{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px}
+  .reason{font-size:11px;background:var(--bad-bg);color:#ffb3b3;border:1px solid var(--bad-line);
+          border-radius:5px;padding:3px 8px;font-weight:550}
+  .reason.soft{background:var(--warn-bg);color:#ffd99a;border-color:var(--warn-line)}
+  .links{margin-top:9px;display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
+  .nat{display:inline-block;font-size:10px;letter-spacing:.4px;text-transform:uppercase;font-weight:700;
+       padding:2px 7px;border-radius:4px;margin-right:6px;vertical-align:1px}
+  .nat-retraction{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad-line)}
+  .nat-expression{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+  .nat-correction{background:var(--accent-dim);color:var(--accent);border:1px solid #2c4a6e}
+  .nat-other{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+
+  .spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--faint);
+           border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .msg{padding:14px 16px;border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px}
+  .msg.err{border-color:var(--bad-line);color:#ffb3b3;background:var(--bad-bg)}
+  .toolbar{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  footer{margin-top:34px;color:var(--faint);font-size:11px;border-top:1px solid var(--line);padding-top:14px;line-height:1.6}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}.v-counts{margin-left:0;width:100%;justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Retraction Screen</h1>
+      <div class="sub">Check an expert against the Retraction Watch database before assignment.
+        Matches by verified publication record (OpenAlex / ORCID) and by author name, and surfaces the
+        retraction reason where recorded.</div>
+    </div>
+    <div class="databadge" id="databadge">data: loading…</div>
+  </header>
+
+  <div class="datapanel">
+    <div class="dp-status" id="dp-status"><span class="dot"></span>Checking retraction list…</div>
+    <div class="dp-actions">
+      <label class="btn-primary uploadbtn">⬆ Load retraction list
+        <input type="file" id="dp-file" accept=".json,.csv,application/json,text/csv">
+      </label>
+      <button class="btn-ghost" id="dp-clear" title="Remove the stored list from this browser">Clear stored</button>
+    </div>
+    <div class="dp-hint">Upload the converted <b>retractions.json</b>, or the raw Retraction Watch <b>.csv</b> (converted in-browser). Stored in this browser so you don't re-upload each visit.</div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>Full name <span class="opt">— required</span></label>
+        <input type="text" id="f-name" placeholder="e.g. Yoshitaka Fujii" autocomplete="off">
+      </div>
+      <div>
+        <label>ORCID <span class="opt">— optional, most accurate</span></label>
+        <input type="text" id="f-orcid" placeholder="0000-0002-1825-0097" autocomplete="off">
+        <div class="hint">If you have it, the expert is matched by identity, not name.</div>
+      </div>
+      <div>
+        <label>OpenAlex profile or ID <span class="opt">— optional</span></label>
+        <input type="text" id="f-openalex" placeholder="https://openalex.org/A5012345678  or  A5012345678" autocomplete="off">
+      </div>
+      <div>
+        <label>Affiliation / country <span class="opt">— optional, helps disambiguate</span></label>
+        <input type="text" id="f-aff" placeholder="e.g. University of Tsukuba, Japan" autocomplete="off">
+      </div>
+    </div>
+    <div class="row-actions">
+      <button class="btn-primary" id="go">Screen expert</button>
+      <button class="btn-ghost" id="clear">Clear</button>
+      <span class="emailwrap">contact email
+        <input type="text" id="f-email" value="" placeholder="you@enago.com" title="Used for the OpenAlex polite pool — faster, more reliable requests">
+      </span>
+    </div>
+  </div>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Retraction Screen
+   - OpenAlex queried live (browser) to resolve the expert and pull is_retracted works.
+   - Retraction Watch records loaded from retractions.json (refresh daily via
+     build_retraction_data.py) for reasons + author-name coverage.
+--------------------------------------------------------------------------- */
+
+const OA = "https://api.openalex.org";
+let RW = { records: [], generated: null, count: 0, source: "" };
+let RW_LOADED = false;
+
+/* ---- tiny helpers ---- */
+const $ = s => document.querySelector(s);
+const el = (t, c, h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
+const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+function stripAccents(s){ return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+function normName(s){ return stripAccents(String(s||"").toLowerCase()).replace(/[.\-]/g," ").replace(/\s+/g," ").trim(); }
+function normDoi(d){ return String(d||"").trim().toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//,""); }
+function email(){ const v=$("#f-email").value.trim(); return v || "screen@example.com"; }
+function mailto(){ return "mailto="+encodeURIComponent(email()); }
+
+/* name tokens -> {last, firstInitial, full} for matching against RW author strings */
+function nameKey(full){
+  const n = normName(full);
+  const parts = n.split(" ").filter(Boolean);
+  if(!parts.length) return null;
+  return { full:n, last:parts[parts.length-1], firstInitial:parts[0][0], tokens:parts };
+}
+/* does an RW author string plausibly match the queried expert name? */
+function authorMatches(rwAuthor, key){
+  if(!key) return false;
+  const a = normName(rwAuthor);
+  if(!a) return false;
+  if(a === key.full) return true;                 // exact
+  const ap = a.split(" ").filter(Boolean);
+  if(!ap.length) return false;
+  const rwLast = ap[ap.length-1];
+  if(rwLast !== key.last) return false;            // last name must match
+  // first name: full match OR initial match
+  const rwFirst = ap[0];
+  if(rwFirst === key.tokens[0]) return true;
+  if(rwFirst[0] === key.firstInitial) return true; // initial match
+  return false;
+}
+
+/* ---- Retraction Watch data layer (upload + persist) ---- */
+let DATA_SOURCE = "none";   // 'upload' | 'stored' | 'file' | 'sample'
+
+/* tiny IndexedDB wrapper so an uploaded list survives reloads (handles multi-MB) */
+const IDB_DB="retraction_screen", IDB_STORE="kv", IDB_KEY="dataset";
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(IDB_DB,1);
+    r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE);
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function idbSet(v){ try{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readwrite");t.objectStore(IDB_STORE).put(v,IDB_KEY);t.oncomplete=()=>res(true);t.onerror=()=>rej(t.error);});}catch(e){return false;} }
+async function idbGet(){ try{const db=await idbOpen();return new Promise((res)=>{const t=db.transaction(IDB_STORE,"readonly");const q=t.objectStore(IDB_STORE).get(IDB_KEY);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);});}catch(e){return null;} }
+async function idbClear(){ try{const db=await idbOpen();return new Promise((res)=>{const t=db.transaction(IDB_STORE,"readwrite");t.objectStore(IDB_STORE).delete(IDB_KEY);t.oncomplete=()=>res(true);t.onerror=()=>res(false);});}catch(e){return false;} }
+
+/* robust CSV parser: handles quoted fields, embedded commas/quotes/newlines */
+function parseCSV(text){
+  const rows=[]; let row=[], field="", q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; }
+      else field+=c;
+    }else{
+      if(c==='"') q=true;
+      else if(c===','){ row.push(field); field=""; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+      else if(c==='\r'){ /* skip */ }
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+const splitList = v => !v ? [] : String(v).split(";").map(s=>s.trim()).filter(Boolean);
+
+/* convert raw Retraction Watch CSV text -> dataset payload (mirrors build_retraction_data.py) */
+function csvToDataset(text){
+  const rows=parseCSV(text).filter(r=>r.length>1);
+  if(!rows.length) throw new Error("CSV looks empty.");
+  const head=rows[0].map(h=>h.trim());
+  const idx={}; head.forEach((h,i)=>idx[h.toLowerCase().replace(/[^a-z]/g,"")]=i);
+  const col=(r,...names)=>{ for(const n of names){ const k=n.toLowerCase().replace(/[^a-z]/g,""); if(idx[k]!=null) return (r[idx[k]]||"").trim(); } return ""; };
+  if(idx["title"]==null || (idx["reason"]==null && idx["author"]==null))
+    throw new Error("That CSV doesn't look like a Retraction Watch export (missing Title/Reason/Author columns).");
+  const records=rows.slice(1).map(r=>({
+    id:     col(r,"Record ID","RecordID"),
+    title:  col(r,"Title"),
+    authors:splitList(col(r,"Author")),
+    inst:   col(r,"Institution"),
+    country:col(r,"Country"),
+    journal:col(r,"Journal"),
+    subject:splitList(col(r,"Subject")),
+    odoi:   normDoi(col(r,"OriginalPaperDOI")),
+    rdoi:   normDoi(col(r,"RetractionDOI")),
+    rdate:  col(r,"RetractionDate"),
+    odate:  col(r,"OriginalPaperDate"),
+    nature: col(r,"RetractionNature") || "Retraction",
+    reasons:splitList(col(r,"Reason")),
+    urls:   splitList(col(r,"URLS","URL")),
+    notes:  col(r,"Notes"),
+  }));
+  return { generated:new Date().toISOString(), count:records.length,
+           source:"Retraction Watch CSV (converted in-browser)", records };
+}
+
+/* validate + load a dataset into memory, refresh UI */
+function applyDataset(payload, source){
+  if(!payload || !Array.isArray(payload.records)) throw new Error("File has no \"records\" array.");
+  RW = payload;
+  RW.count = RW.count || RW.records.length;
+  for(const rec of RW.records){ rec._authNorm=(rec.authors||[]).map(normName); rec._odoi=normDoi(rec.odoi); }
+  RW_LOADED = source!=="sample";
+  DATA_SOURCE = source;
+  updateDataStatus();
+}
+
+function fmtDate(d){ if(!d) return "—"; const t=new Date(d); return isNaN(t)?String(d).split(" ")[0]:t.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}); }
+function ageDays(d){ const t=new Date(d); return isNaN(t)?null:Math.floor((Date.now()-t)/864e5); }
+
+function updateDataStatus(){
+  const badge=$("#databadge"), st=$("#dp-status");
+  const n=(RW.count||RW.records.length||0).toLocaleString();
+  const when=fmtDate(RW.generated);
+  const age = RW.generated ? ageDays(RW.generated) : null;
+  const stale = age!=null && age>14;
+  const srcWord = {upload:"just uploaded",stored:"loaded from this browser",file:"loaded from retractions.json",sample:"SAMPLE data"}[DATA_SOURCE]||"";
+  badge.className = "databadge "+(DATA_SOURCE==="sample"?"stale":(stale?"stale":"live"));
+  badge.innerHTML = DATA_SOURCE==="sample"
+    ? `<b>SAMPLE</b> · upload a real list`
+    : `<b>${n}</b> retractions · as of ${when}`;
+  badge.title = RW.source||"";
+  const dot = DATA_SOURCE==="sample"?"warn":(stale?"warn":"ok");
+  st.innerHTML = DATA_SOURCE==="sample"
+    ? `<span class="dot warn"></span>No retraction list loaded — running on <b>sample</b> data. Upload a list to screen for real.`
+    : `<span class="dot ${dot}"></span><b>${n}</b> retractions · dated ${when} · ${srcWord}` + (stale?` · <span style="color:var(--warn)">over 2 weeks old — consider refreshing</span>`:``);
+  $("#foot").innerHTML = footerText();
+}
+
+/* startup: stored upload first, then a deployed file, then sample */
+async function loadRW(){
+  const stored = await idbGet();
+  if(stored && Array.isArray(stored.records)){ try{ applyDataset(stored,"stored"); return; }catch(e){} }
+  try{
+    const r = await fetch("retractions.json",{cache:"no-store"});
+    if(!r.ok) throw 0;
+    applyDataset(await r.json(),"file"); return;
+  }catch(e){}
+  applyDataset(JSON.parse(JSON.stringify(SAMPLE_DATA)),"sample");
+}
+
+/* handle a chosen file (.json or .csv) */
+async function handleUpload(file){
+  const st=$("#dp-status");
+  st.innerHTML=`<span class="spinner"></span>Reading ${esc(file.name)}…`;
+  try{
+    const text = await file.text();
+    let payload;
+    if(/\.csv$/i.test(file.name) || (!/^\s*[{[]/.test(text) && text.includes(","))){
+      payload = csvToDataset(text);
+    } else {
+      payload = JSON.parse(text);
+    }
+    applyDataset(payload,"upload");
+    const okStored = await idbSet({generated:RW.generated,count:RW.count,source:RW.source,records:RW.records});
+    if(!okStored){
+      st.innerHTML += ` <span style="color:var(--warn)">(couldn't store — will reset on reload)</span>`;
+    }
+  }catch(e){
+    st.innerHTML=`<span class="dot warn"></span><span style="color:var(--bad)">Couldn't load that file: ${esc(e.message)}</span>`;
+  }
+}
+
+function footerText(){
+  if(DATA_SOURCE==="sample")
+    return `⚠ Running on embedded SAMPLE data — a couple of demo records only. Use “Load retraction list” above to upload a real <code>retractions.json</code> or the Retraction Watch <code>.csv</code>.`;
+  return `Retraction data: ${esc(RW.source||"Retraction Watch Database")}, ${(RW.count||0).toLocaleString()} records, dated ${esc(fmtDate(RW.generated))}. `
+    + `Stored in this browser only — other people/devices using the portal need to upload it too (or deploy it as retractions.json). Publication identity from OpenAlex, live.`;
+}
+
+/* ---- OpenAlex calls ---- */
+async function oaGet(url){
+  const r = await fetch(url, {headers:{Accept:"application/json"}});
+  if(r.status===429) throw new Error("OpenAlex is rate-limiting requests right now. Add your contact email (top right) and try again in a few seconds.");
+  if(!r.ok) throw new Error("OpenAlex request failed ("+r.status+").");
+  return r.json();
+}
+async function resolveAuthor({name, orcid, openalex, aff}){
+  // 1) explicit OpenAlex id / url
+  if(openalex){
+    const id = openalex.trim().replace(/^https?:\/\/openalex\.org\//i,"").replace(/^.*\//,"");
+    if(/^A\d+$/i.test(id)){
+      const a = await oaGet(`${OA}/authors/${id}?${mailto()}`);
+      return {chosen:a, candidates:[a]};
+    }
+  }
+  // 2) ORCID
+  if(orcid){
+    const oc = orcid.trim().replace(/^https?:\/\/orcid\.org\//i,"");
+    const d = await oaGet(`${OA}/authors?filter=orcid:${encodeURIComponent(oc)}&${mailto()}`);
+    if(d.results&&d.results.length) return {chosen:d.results[0], candidates:d.results};
+  }
+  // 3) name search (optionally biased by affiliation token)
+  let url = `${OA}/authors?search=${encodeURIComponent(name)}&per_page=8&${mailto()}`;
+  const d = await oaGet(url);
+  let cands = d.results||[];
+  if(aff){
+    const at = normName(aff);
+    const score = a => {
+      const insts = (a.last_known_institutions||a.affiliations?.map(x=>x.institution)||[])
+        .map(i=>normName(i&&i.display_name)).join(" ");
+      return at.split(" ").some(tok=>tok.length>3 && insts.includes(tok)) ? 1 : 0;
+    };
+    cands = cands.slice().sort((x,y)=>score(y)-score(x));
+  }
+  return {chosen:null, candidates:cands};
+}
+async function retractedWorks(authorId){
+  const id = authorId.replace(/^https?:\/\/openalex\.org\//i,"");
+  const sel = "id,doi,title,publication_year,is_retracted,primary_location";
+  const d = await oaGet(`${OA}/works?filter=author.id:${id},is_retracted:true&select=${sel}&per_page=50&${mailto()}`);
+  return (d.results||[]).map(w=>({
+    doi: normDoi(w.doi),
+    title: w.title || "(untitled)",
+    year: w.publication_year,
+    journal: (w.primary_location&&w.primary_location.source&&w.primary_location.source.display_name)||""
+  }));
+}
+
+/* ---- RW lookups ---- */
+function rwByDoi(doi){ if(!doi) return null; return RW.records.find(r=>r._odoi && r._odoi===doi) || null; }
+function rwByName(key, aff){
+  if(!key) return [];
+  const affTok = aff ? normName(aff).split(" ").filter(t=>t.length>3) : [];
+  const out=[];
+  for(const r of RW.records){
+    if(!(r._authNorm||[]).some(a=>authorMatches(a,key))) continue;
+    let affHit=false;
+    if(affTok.length){
+      const hay = normName((r.inst||"")+" "+(r.country||""));
+      affHit = affTok.some(t=>hay.includes(t));
+    }
+    out.push({rec:r, affHit});
+  }
+  // affiliation-confirmed first, then by retraction date desc
+  out.sort((a,b)=> (b.affHit-a.affHit) || String(b.rec.rdate).localeCompare(String(a.rec.rdate)));
+  return out;
+}
+
+/* ---- render ---- */
+function natClass(n){ n=(n||"").toLowerCase();
+  if(n.includes("retraction"))return"nat-retraction";
+  if(n.includes("expression"))return"nat-expression";
+  if(n.includes("correction"))return"nat-correction";
+  return"nat-other"; }
+
+function recCard(rec, cls, opts={}){
+  const c = el("div","rec "+cls);
+  const nat = rec.nature||"Retraction";
+  c.appendChild(el("div","rtitle",
+    `<span class="nat ${natClass(nat)}">${esc(nat)}</span>${esc(rec.title||"(untitled)")}`));
+  if(rec.journal||rec.rdate) c.appendChild(el("div","line",
+    `${rec.journal?`<b>${esc(rec.journal)}</b>`:""}${rec.journal&&rec.rdate?" · ":""}${rec.rdate?"retracted "+esc(String(rec.rdate).split(" ")[0]):""}`));
+  if(rec.inst||rec.country) c.appendChild(el("div","line",
+    `${esc(rec.inst||"")}${rec.inst&&rec.country?" · ":""}${esc(rec.country||"")}`));
+  if(rec.odoi) c.appendChild(el("div","line",`DOI: ${esc(rec.odoi)}`));
+  if(opts.matchedDoi) c.appendChild(el("div","line",`matched to this expert's publication`));
+  // reasons
+  if(rec.reasons && rec.reasons.length){
+    const wrap=el("div","reasons");
+    rec.reasons.forEach(rs=>{
+      const txt=rs.replace(/^\+/,"").trim();
+      const soft=/concern|unrespons|investigation|notice/i.test(txt);
+      wrap.appendChild(el("span","reason"+(soft?" soft":""),esc(txt)));
+    });
+    c.appendChild(wrap);
+  } else {
+    c.appendChild(el("div","line",`<span style="color:var(--faint)">reason not recorded</span>`));
+  }
+  // links
+  const links=el("div","links");
+  if(rec.odoi) links.appendChild(el("a",null,"Original paper ↗")).href="https://doi.org/"+rec.odoi;
+  if(rec.rdoi) { const a=el("a",null,"Retraction notice ↗"); a.href="https://doi.org/"+rec.rdoi; a.target="_blank"; links.appendChild(a); }
+  (rec.urls||[]).slice(0,1).forEach(u=>{ const a=el("a",null,"Retraction Watch ↗"); a.href=u; a.target="_blank"; links.appendChild(a); });
+  links.querySelectorAll("a").forEach(a=>a.target="_blank");
+  if(links.children.length) c.appendChild(links);
+  return c;
+}
+
+function group(title, count, noteHtml, recs, cls, opts){
+  const g=el("div","group");
+  const h=el("div","group-head");
+  h.appendChild(el("h3",null,esc(title)));
+  h.appendChild(el("span","pill",String(count)));
+  g.appendChild(h);
+  if(noteHtml) g.appendChild(el("p","group-note",noteHtml));
+  recs.forEach(r=>g.appendChild(recCard(r.rec||r, cls, r.opts||opts||{})));
+  return g;
+}
+
+let LAST = null; // for copy-summary
+
+async function run(){
+  const name=$("#f-name").value.trim();
+  const orcid=$("#f-orcid").value.trim();
+  const openalex=$("#f-openalex").value.trim();
+  const aff=$("#f-aff").value.trim();
+  if(!name && !orcid && !openalex){ setStatus(`<div class="msg err">Enter at least a full name (ORCID or OpenAlex ID if you have them).</div>`); return; }
+
+  $("#go").disabled=true;
+  $("#results").innerHTML="";
+  setStatus(`<div class="msg"><span class="spinner"></span>Resolving expert on OpenAlex…</div>`);
+
+  try{
+    const {chosen, candidates} = await resolveAuthor({name,orcid,openalex,aff});
+    if(!chosen && candidates.length>1 && !orcid && !openalex){
+      // ask the QA to confirm which author
+      pickCandidate(candidates,{name,orcid,openalex,aff});
+      $("#go").disabled=false;
+      return;
+    }
+    const author = chosen || candidates[0];
+    if(!author){
+      setStatus(`<div class="msg">No OpenAlex profile matched <b>${esc(name)}</b>. Falling back to a name-only search of the retraction list below.</div>`);
+      return finish(null,{name,orcid,openalex,aff});
+    }
+    await finish(author,{name,orcid,openalex,aff});
+  }catch(e){
+    setStatus(`<div class="msg err">${esc(e.message)}</div>`);
+  }finally{
+    $("#go").disabled=false;
+  }
+}
+
+function pickCandidate(cands, q){
+  const box=el("div","candidate-pick");
+  box.appendChild(el("div","msg",`Several OpenAlex profiles match <b>${esc(q.name)}</b>. Pick the right one:`));
+  cands.slice(0,8).forEach(a=>{
+    const inst=(a.last_known_institutions&&a.last_known_institutions[0]&&a.last_known_institutions[0].display_name)||"—";
+    const c=el("div","candidate");
+    c.innerHTML=`<div><div style="font-weight:600">${esc(a.display_name)}</div>
+      <div class="meta">${esc(inst)} · ${a.works_count} works${a.orcid?` · ${esc(a.orcid.replace("https://orcid.org/",""))}`:""}</div></div>
+      <div class="meta">choose →</div>`;
+    c.onclick=async()=>{ setStatus(`<div class="msg"><span class="spinner"></span>Screening ${esc(a.display_name)}…</div>`); $("#results").innerHTML=""; await finish(a,q); };
+    box.appendChild(c);
+  });
+  setStatus("");
+  $("#results").appendChild(box);
+}
+
+async function finish(author, q){
+  const key = nameKey(q.name || (author&&author.display_name));
+  // OpenAlex retracted works (identity-linked)
+  let oaWorks=[];
+  if(author){
+    setStatus(`<div class="msg"><span class="spinner"></span>Checking ${esc(author.display_name)}'s publication record…</div>`);
+    try{ oaWorks = await retractedWorks(author.id); }catch(e){ /* keep going with name search */ }
+  }
+  // RW name search (catches retractions not yet flagged in OpenAlex / no ORCID link)
+  const nameHits = rwByName(key, q.aff);
+
+  // Build buckets
+  const confirmed=[];   // OA retracted work that also appears in RW (reason available)
+  const oaOnly=[];      // OA flags retracted, but RW has no record (lag / non-RW)
+  const seenDoi=new Set();
+  for(const w of oaWorks){
+    const rw = rwByDoi(w.doi);
+    if(rw){ confirmed.push({rec:rw, opts:{matchedDoi:true}}); seenDoi.add(rw._odoi); }
+    else { oaOnly.push({rec:{title:w.title,journal:w.journal,odoi:w.doi,rdate:w.year?String(w.year):"",nature:"Retraction",reasons:[]}}); }
+  }
+  // name hits that aren't already shown via DOI
+  const nameOnly = nameHits.filter(h=> !(h.rec._odoi && seenDoi.has(h.rec._odoi)));
+
+  renderResults(author, q, {confirmed, oaOnly, nameOnly});
+}
+
+function renderResults(author, q, b){
+  const results=$("#results"); results.innerHTML="";
+  const nConfirmed=b.confirmed.length, nOA=b.oaOnly.length, nName=b.nameOnly.length;
+
+  // verdict
+  let cls,icon,title,msg;
+  if(nConfirmed>0 || nOA>0){
+    cls="v-bad"; icon="⛔";
+    title=`${nConfirmed+nOA} retraction${nConfirmed+nOA>1?"s":""} on this expert's record`;
+    msg="These are tied to the expert's own publications. Review the reasons before assigning.";
+  }else if(nName>0){
+    cls="v-warn"; icon="⚠";
+    title=`${nName} possible name match${nName>1?"es":""} — needs verification`;
+    msg="Matched by author name only (not linked to a confirmed profile). Confirm whether these are the same person.";
+  }else{
+    cls="v-ok"; icon="✓";
+    title="No retractions found";
+    msg=author ? "Nothing on the expert's OpenAlex record or in the retraction list under this name."
+               : "No name matches in the retraction list. (No OpenAlex profile was resolved.)";
+  }
+  const v=el("div","verdict "+cls);
+  v.innerHTML=`<div class="v-icon">${icon}</div>
+    <div><h2>${esc(title)}</h2><p>${esc(msg)}</p></div>
+    <div class="v-counts">
+      <div><b>${nConfirmed}</b>confirmed</div>
+      <div><b>${nOA}</b>flagged</div>
+      <div><b>${nName}</b>name only</div>
+    </div>`;
+  results.appendChild(v);
+
+  // identity
+  if(author){
+    const inst=(author.last_known_institutions&&author.last_known_institutions[0]&&author.last_known_institutions[0].display_name)||"—";
+    const h=(author.summary_stats&&author.summary_stats.h_index)!=null?author.summary_stats.h_index:"—";
+    const id=el("div","identity");
+    id.innerHTML=`<div class="nm">${esc(author.display_name)}</div>
+      <div class="meta">${esc(inst)}</div>
+      <div class="meta">${author.works_count} works · h-index ${h} · ${author.cited_by_count} citations</div>
+      <div class="meta">${author.orcid?`<a href="${esc(author.orcid)}" target="_blank">ORCID ↗</a>`:""}
+        &nbsp;<a href="${esc(author.id)}" target="_blank">OpenAlex ↗</a></div>`;
+    results.appendChild(id);
+  }
+
+  if(nConfirmed) results.appendChild(group("Confirmed retractions", nConfirmed,
+    "Matched to this expert's publications by DOI and present in the Retraction Watch database.",
+    b.confirmed, "c-confirmed"));
+  if(nOA) results.appendChild(group("Flagged by OpenAlex", nOA,
+    "OpenAlex marks these as retracted but no matching Retraction Watch record was found (possible reporting lag, or a non-Retraction-Watch source). Reason not available here — verify the notice.",
+    b.oaOnly, "c-oaflag"));
+  if(nName) results.appendChild(group("Possible name matches", nName,
+    "Author name matches the retraction list but these are not linked to a confirmed profile. "+(q.aff?"Affiliation-confirmed matches are shown first. ":"")+"Verify identity before acting.",
+    b.nameOnly, "c-name"));
+
+  // toolbar
+  const tb=el("div","toolbar");
+  const copy=el("button","btn-ghost","Copy summary");
+  copy.onclick=()=>copySummary(author,q,b,title);
+  const print=el("button","btn-ghost","Print / save PDF");
+  print.onclick=()=>window.print();
+  tb.appendChild(copy); tb.appendChild(print);
+  results.appendChild(tb);
+
+  LAST={author,q,b,title};
+}
+
+function copySummary(author,q,b,title){
+  const L=[];
+  L.push("RETRACTION SCREEN — "+(q.name||(author&&author.display_name)||""));
+  if(author) L.push("OpenAlex: "+author.display_name+" ("+author.id+")"+(author.orcid?" / "+author.orcid:""));
+  L.push("Screened: "+new Date().toLocaleString());
+  L.push("Data as of: "+(RW.generated||"sample")+" ("+(RW.count||0)+" records)");
+  L.push("VERDICT: "+title);
+  L.push("");
+  const dump=(label,arr,reason)=>{ if(!arr.length)return;
+    L.push(label+":");
+    arr.forEach(x=>{ const r=x.rec||x;
+      L.push("  - "+(r.title||"")+(r.journal?" ["+r.journal+"]":"")+(r.rdate?" (retracted "+String(r.rdate).split(" ")[0]+")":""));
+      if(r.odoi) L.push("    DOI: "+r.odoi);
+      if(reason && r.reasons && r.reasons.length) L.push("    Reason: "+r.reasons.map(s=>s.replace(/^\+/,"")).join("; "));
+    });
+    L.push("");
+  };
+  dump("CONFIRMED RETRACTIONS",b.confirmed,true);
+  dump("FLAGGED BY OPENALEX (reason not in RW)",b.oaOnly,false);
+  dump("POSSIBLE NAME MATCHES (verify identity)",b.nameOnly,true);
+  const txt=L.join("\n");
+  navigator.clipboard.writeText(txt).then(()=>{ const m=$("#status"); },()=>{});
+  // brief inline confirmation
+  const note=el("div","msg","Summary copied to clipboard.");
+  $("#results").appendChild(note); setTimeout(()=>note.remove(),2500);
+}
+
+function setStatus(html){ $("#status").innerHTML=html; }
+
+/* ---- embedded SAMPLE data (replaced by retractions.json) ---- */
+const SAMPLE_DATA = { generated:null, count:2, source:"SAMPLE — replace with retractions.json", records:[
+  {id:"12345",title:"Effects of a novel agent on postoperative outcomes",authors:["Yoshitaka Fujii","Hiroyuki Uchida"],
+   inst:"University of Tsukuba",country:"Japan",journal:"Anesthesia & Analgesia",subject:["Anesthesiology"],
+   odoi:"10.1213/00000539-200005000-00001",rdoi:"10.1213/ane.0b013e3182536f7c",rdate:"3/1/2012",odate:"5/1/2000",
+   nature:"Retraction",reasons:["+Fabrication of Data","+Concerns/Issues About Data"],
+   urls:["https://retractionwatch.com"],notes:"Demo record."},
+  {id:"67890",title:"A study on irrigation sensors",authors:["Jane Q Author","Bob Smith"],
+   inst:"Some University",country:"China",journal:"IEEE Access",subject:["Computer Science"],
+   odoi:"10.1109/access.2021.111111",rdoi:"10.1109/access.2023.000000",rdate:"6/15/2023",odate:"1/2/2021",
+   nature:"Expression of concern",reasons:["+Plagiarism of Text"],urls:["https://retractionwatch.com"],notes:""}
+]};
+
+/* ---- wire up ---- */
+$("#go").onclick=run;
+["f-name","f-orcid","f-openalex","f-aff"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{if(e.key==="Enter")run();}));
+$("#clear").onclick=()=>{["f-name","f-orcid","f-openalex","f-aff"].forEach(id=>$("#"+id).value="");$("#status").innerHTML="";$("#results").innerHTML="";};
+$("#dp-file").addEventListener("change",e=>{ if(e.target.files&&e.target.files[0]) handleUpload(e.target.files[0]); e.target.value=""; });
+$("#dp-clear").onclick=async()=>{ await idbClear(); applyDataset(JSON.parse(JSON.stringify(SAMPLE_DATA)),"sample"); };
+loadRW();
+</script>
+</body>
+</html>
